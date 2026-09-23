@@ -3992,3 +3992,669 @@ effect()
 And in your specific code:
 
 > **`count()` inside the `effect()` tells Angular that the effect depends on `count`. Therefore, whenever `count` changes, Angular re-runs the effect.**
+
+
+## 1. Creating a Signal
+
+```ts
+name: WritableSignal<String> = signal('');
+```
+
+Here you're creating a **writable signal** called `name`.
+
+Think of a signal as a **reactive box that stores a value**.
+
+Initially:
+
+```text
+name
+ ↓
+""
+```
+
+Because you used:
+
+```ts
+signal('')
+```
+
+the initial value is an empty string.
+
+### Why `WritableSignal`?
+
+Angular has different signal types. Here you need to **change** the value, so you use:
+
+```ts
+WritableSignal
+```
+
+That's why you can do:
+
+```ts
+this.name.set("Md Moaz Shamim");
+```
+
+If the signal were read-only, you couldn't use `.set()`.
+
+---
+
+## 2. Reading the Signal
+
+In your HTML:
+
+```html
+<p class="value">
+  {{ name() }}
+</p>
+```
+
+Notice:
+
+```ts
+name()
+```
+
+not:
+
+```ts
+name
+```
+
+A signal is read by **calling it like a function**.
+
+```ts
+name()
+```
+
+means:
+
+> "Give me the current value stored inside `name`."
+
+For example:
+
+```ts
+name = signal("Moaz");
+```
+
+Then:
+
+```html
+{{ name() }}
+```
+
+displays:
+
+```text
+Moaz
+```
+
+---
+
+## 3. Why does Angular use `name()`?
+
+This is one of the important concepts about Signals.
+
+A normal property:
+
+```ts
+name = "Moaz";
+```
+
+is accessed using:
+
+```ts
+name
+```
+
+But a signal:
+
+```ts
+name = signal("Moaz");
+```
+
+is accessed using:
+
+```ts
+name()
+```
+
+So:
+
+```text
+Normal property
+      ↓
+    name
+
+Signal
+      ↓
+    name()
+```
+
+The `()` tells Angular that you're **reading the current signal value**.
+
+---
+
+## 4. `[value]="name()"`
+
+Your input contains:
+
+```html
+<input
+  type="text"
+  [value]="name()"
+  ...
+/>
+```
+
+This is **property binding**.
+
+You're saying:
+
+> Set the input's `value` property to whatever the signal currently contains.
+
+For example:
+
+```text
+name() = "Md Moaz Shamim"
+```
+
+Angular effectively does:
+
+```text
+<input value="Md Moaz Shamim">
+```
+
+So the signal controls the input's displayed value.
+
+### Data flow
+
+```text
+Signal
+  │
+  │ name()
+  ↓
+Input value
+```
+
+This is **one-way data flow from component → template**.
+
+---
+
+## 5. `(input)="..."`
+
+Now look at:
+
+```html
+(input)="setValue($any($event.target).value)"
+```
+
+This is **event binding**.
+
+The browser fires the `input` event whenever the user changes the input.
+
+For example, the user types:
+
+```text
+M
+Mo
+Moa
+Moaz
+```
+
+Every time the input changes, Angular executes:
+
+```ts
+setValue(...)
+```
+
+---
+
+## 6. Understanding `$event`
+
+This is probably the most important part of your input example.
+
+```html
+(input)="setValue($any($event.target).value)"
+```
+
+When the user types something, Angular gives you an event object:
+
+```ts
+$event
+```
+
+Conceptually:
+
+```text
+$event
+   │
+   └── target
+         │
+         └── input element
+```
+
+And the input element has:
+
+```ts
+value
+```
+
+So:
+
+```ts
+$event.target.value
+```
+
+means:
+
+> Get the value currently typed inside the input.
+
+---
+
+## 7. Why are you using `$any()`?
+
+You wrote:
+
+```ts
+$any($event.target).value
+```
+
+Angular's template type checking may not know that `$event.target` is specifically an HTML input element.
+
+So you're telling Angular:
+
+> Treat this as any type.
+
+Therefore:
+
+```ts
+$any($event.target).value
+```
+
+allows you to access:
+
+```ts
+.value
+```
+
+### In plain JavaScript thinking
+
+You can think of:
+
+```ts
+$any($event.target).value
+```
+
+as:
+
+```text
+event
+ ↓
+target
+ ↓
+input element
+ ↓
+value
+```
+
+---
+
+## 8. `setValue()` method
+
+Your component has:
+
+```ts
+setValue(val: string) {
+  this.name.set(val);
+}
+```
+
+Suppose the user types:
+
+```text
+Moaz
+```
+
+Then:
+
+```ts
+val = "Moaz"
+```
+
+and:
+
+```ts
+this.name.set(val);
+```
+
+changes the signal.
+
+So:
+
+```text
+Before
+
+name()
+ ↓
+""
+
+        ↓ user types "Moaz"
+
+After
+
+name()
+ ↓
+"Moaz"
+```
+
+---
+
+## 9. What happens after `.set()`?
+
+This is where Signals become powerful.
+
+You have:
+
+```html
+<p class="value">
+  {{ name() }}
+</p>
+```
+
+and:
+
+```html
+<input [value]="name()">
+```
+
+Both are reading the signal.
+
+When you do:
+
+```ts
+this.name.set("Moaz");
+```
+
+Angular knows that `name` changed.
+
+It can therefore update the parts of the UI that depend on that signal.
+
+So your flow becomes:
+
+```text
+User types
+     ↓
+input event
+     ↓
+setValue()
+     ↓
+name.set(value)
+     ↓
+Signal changes
+     ↓
+Angular updates UI
+     ↓
+<p> displays new value
+     ↓
+<input> gets new value
+```
+
+---
+
+## 10. Your `resetValue()` method
+
+You have:
+
+```ts
+resetValue() {
+  this.name.set("Md Moaz Shamim");
+}
+```
+
+When the button is clicked:
+
+```html
+<button (click)="resetValue()">
+  Reset Value
+</button>
+```
+
+Angular executes:
+
+```ts
+resetValue()
+```
+
+which does:
+
+```ts
+this.name.set("Md Moaz Shamim");
+```
+
+So the signal changes:
+
+```text
+name()
+ ↓
+"Md Moaz Shamim"
+```
+
+And because your template depends on `name()`:
+
+```html
+<p>{{ name() }}</p>
+```
+
+and:
+
+```html
+<input [value]="name()">
+```
+
+both reflect the new value.
+
+---
+
+## 11. The complete data flow
+
+Your entire application can be understood like this:
+
+```text
+                    ┌──────────────────┐
+                    │  WritableSignal  │
+                    │      name        │
+                    └────────┬─────────┘
+                             │
+                       name()
+                             │
+              ┌──────────────┴──────────────┐
+              ↓                             ↓
+       <p>{{ name() }}</p>          <input [value]="name()">
+                                            │
+                                            │ user types
+                                            ↓
+                                     (input) event
+                                            │
+                                            ↓
+                                      setValue()
+                                            │
+                                            ↓
+                                      name.set()
+                                            │
+                                            └───────────┐
+                                                        │
+                                                        ↓
+                                                Signal changes
+                                                        │
+                                                        ↓
+                                                  UI updates
+```
+
+---
+
+## 12. You are actually using two different directions
+
+This is an important Angular concept.
+
+### Component → Template
+
+You have:
+
+```html
+[value]="name()"
+```
+
+This sends data **from your component's signal to the input**.
+
+```text
+Component
+   │
+   │ name()
+   ↓
+Template/Input
+```
+
+### Template → Component
+
+You have:
+
+```html
+(input)="setValue(...)"
+```
+
+This sends the user's input **back to your component**.
+
+```text
+Input
+   │
+   │ input event
+   ↓
+setValue()
+   │
+   ↓
+name.set()
+```
+
+So together:
+
+```text
+          COMPONENT
+              │
+          name signal
+              │
+              ↓
+           TEMPLATE
+              │
+          input field
+              │
+          user types
+              │
+              ↓
+          COMPONENT
+              │
+          name.set()
+              │
+              ↓
+        signal changes
+              │
+              ↓
+           TEMPLATE
+```
+
+That's the fundamental idea behind your example.
+
+---
+
+## 13. Why isn't this technically `[(ngModel)]`?
+
+You could also write something like:
+
+```html
+<input [(ngModel)]="name">
+```
+
+but your example is intentionally showing **how the mechanism works underneath**.
+
+You're manually combining:
+
+```html
+[value]="name()"
+```
+
+with:
+
+```html
+(input)="setValue(...)"
+```
+
+This is essentially:
+
+```text
+[value]       → send value to input
+(input)       → receive value from input
+```
+
+This pattern is very useful for understanding Angular's **property binding + event binding**.
+
+---
+
+## 14. One small terminology correction
+
+Your method:
+
+```ts
+resetValue()
+```
+
+doesn't really "reset" the value to the original empty value:
+
+```ts
+signal('')
+```
+
+Instead, it changes the value to:
+
+```text
+"Md Moaz Shamim"
+```
+
+So technically it's more like:
+
+```ts
+setDefaultValue() {
+  this.name.set("Md Moaz Shamim");
+}
+```
+
+If you wanted a true reset to the initial state, you could do:
+
+```ts
+resetValue() {
+  this.name.set('');
+}
+```
+
+But your current code is perfectly valid if your intention is to set the name back to `"Md Moaz Shamim"`.
+
+### The three concepts you should remember from this example
+
+| Code               | Concept          | Meaning                               |
+| ------------------ | ---------------- | ------------------------------------- |
+| `signal('')`       | Signal           | Creates reactive state                |
+| `name()`           | Signal read      | Gets current value                    |
+| `name.set(value)`  | Signal write     | Changes value                         |
+| `[value]="name()"` | Property binding | Component → HTML                      |
+| `(input)="..."`    | Event binding    | HTML → Component                      |
+| `$event`           | Event object     | Information about the event           |
+| `$any(...)`        | Type escape      | Tells Angular to treat value as `any` |
+
+The **core pattern** in your code is:
+
+```text
+[value]="name()"       → READ the signal
+        +
+(input)="setValue(...)" → WRITE to the signal
+```
+
+That is a very good exercise for understanding how Angular Signals interact with the DOM.
+
